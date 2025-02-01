@@ -1,0 +1,97 @@
+#include <TinyGPS++.h> // GPS library
+TinyGPSPlus gps; // GPS object
+double latitude, longitude;
+#include <SoftwareSerial.h>
+SoftwareSerial swSer(13, 12);
+#include <TimeLib.h>
+#include <EEPROM.h>
+
+#define LED_BUILTIN 25
+
+unsigned long previousMillis = 0;
+const long interval = 1000;
+String gpslink = "";
+int counter = 0;
+unsigned long counter1 = 0;
+byte Second, Minute, Hour, Day, Month;
+int Year;
+int UTC_offset = 7; // WIB=7 WITA=8 WIT=9
+String data_waktu = "";
+
+// Libraries for LoRA
+#include <SPI.h>
+#include <LoRA.h>
+
+// Libraries for OLED Display
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// Define the pins used by the LoRA transceiver module
+#define SCK 5
+#define MISO 19
+#define MOSI 27
+#define SS 18
+#define RST 23
+#define DIO0 26
+
+// 433E6 for Asia
+// 866E6 for Europe
+// 915E6 for North America
+#define BAND 915E6 // E1 E3 E6
+
+// OLED pins
+#define OLED_SDA 21
+#define OLED_SCL 22
+#define OLED_RST 16
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+#define button 14
+#define gnd 15
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+void send_koordinat() {
+  // Send LoRA packet to receiver
+  LoRA.beginPacket();
+  LoRA.print("*");
+  LoRA.print(latitude, 6);
+  LoRA.print(",");
+  LoRA.print(longitude, 6);
+  LoRA.print(",");
+  LoRA.print(data_waktu);
+  LoRA.print("#\n");
+  LoRA.endPacket();
+
+  Serial.print(latitude, 6);
+  Serial.print(",");
+  Serial.print(longitude, 6);
+  Serial.print(",");
+  Serial.print(data_waktu);
+  Serial.println("#\n");
+}
+
+void read_gps() {
+  while (swSer.available()) {
+    gps.encode(swSer.read());
+  }
+}
+
+void get_data_gps() {
+  if (gps.location.isUpdated()) {
+    latitude = gps.location.lat();
+    longitude = gps.location.lng();
+  }
+
+  // Get time from GPS module
+  if (gps.time.isValid()) {
+    Minute = gps.time.minute();
+    Second = gps.time.second();
+    Hour = gps.time.hour();
+  }
+
+  // Get date from GPS module
+  if (gps.date.isValid()) {
+    Day = gps.date.day();
+    Month = gps.date
