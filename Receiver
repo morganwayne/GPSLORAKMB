@@ -1,0 +1,115 @@
+#define LED_BUILTIN 25
+
+unsigned long previousMillis = 0;
+const long interval = 1000;
+
+String gpslink = "";
+
+// Libraries for LoRA
+#include <SPI.h>
+#include <LoRA.h>
+
+// Libraries for OLED Display
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// Define the pins used by the LoRA transceiver module
+#define SCK 5
+#define MISO 19
+#define MOSI 27
+#define SS 18
+#define RST 23
+#define DIO0 26
+
+// 433E6 for Asia
+// 866E6 for Europe
+// 915E6 for North America
+#define BAND 915E6
+
+// OLED pins
+#define OLED_SDA 21
+#define OLED_SCL 22
+#define OLED_RST 16
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+String LoRAData;
+int rssi;
+
+void receive_data() {
+  int packetSize = LoRA.parsePacket();
+  if (packetSize) {
+    // Read packet
+    while (LoRA.available()) {
+      LoRAData = LoRA.readString();
+      Serial.print(LoRAData);
+    }
+    // Print RSSI of packet
+    rssi = LoRA.packetRssi();
+  }
+}
+
+void tasktimer() {
+  unsigned long currentMillis = millis();
+
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.print("RX:");
+    display.print(BAND);
+    display.setCursor(0, 10);
+    display.print("RSSI:");
+    display.print(rssi);
+    display.setCursor(0, 20);
+    display.print(LoRAData);
+
+    display.display();
+
+    digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
+  }
+}
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  Serial.begin(9600);
+
+  // Initialize OLED
+  Wire.begin(OLED_SDA, OLED_SCL);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3c, false, false)) {
+    // Serial.println("LCD error");
+  }
+
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print("LORA RX");
+
+  display.display();
+
+  // SPI LoRA pins
+  SPI.begin(SCK, MISO, MOSI, SS);
+  // Setup LoRA transceiver module
+  LoRA.setPins(SS, RST, DIO0);
+
+  if (!LoRA.begin(BAND)) {
+    display.setCursor(0, 30);
+    display.print("Starting LoRA failed!");
+    display.display();
+  } else {
+    display.setCursor(0, 30);
+    display.print("Starting LoRA OK!");
+    display.display();
+  }
+}
+
+void loop() {
+  receive_data();
+  tasktimer();
+}
