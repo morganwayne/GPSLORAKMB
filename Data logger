@@ -1,0 +1,71 @@
+#include <SoftwareSerial.h>
+SoftwareSerial swSer(D2, D1);
+#include <SPI.h>
+#include <SD.h>
+
+const int chipSelect = D8;
+#define LED_BUILTIN D4
+int tanda = 0;
+String dataString = "";
+String in = "";
+float latitude, longitude;
+int counter = 0;
+
+void datalog() {
+  File dataFile;
+  if (tanda == 1) {
+    if (!SD.exists("save.txt")) {
+      Serial.println("first opening");
+      dataFile = SD.open("save.txt", FILE_WRITE);
+      if (dataFile) {
+        Serial.println("first write");
+        dataFile.println("LATITUDE,LONGITUDE,TIME");
+        dataFile.close();
+      } else {
+        Serial.println("first error opening ");
+      }
+    }
+    dataFile = SD.open("save.txt", FILE_WRITE);
+    if (dataFile) {
+      dataFile.println(dataString);
+      dataFile.close();
+      Serial.println("write ");
+      Serial.println(dataString);
+    } else {
+      Serial.println("error opening ");
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+  swSer.begin(9600);
+  Serial.println("starting");
+  if (!SD.begin(chipSelect)) {
+    Serial.println("card failed");
+    tanda = 0;
+    digitalWrite(LED_BUILTIN, 0);
+  } else {
+    Serial.println("card ok");
+    tanda = 1;
+    digitalWrite(LED_BUILTIN, 0);
+  }
+}
+
+void loop() {
+  if (swSer.available()) {
+    char c = swSer.read();
+    if (c == '*' || c == '#') ;
+    else dataString += c;
+    if (c == '*') dataString = "";
+
+    if (c == '#') {
+      Serial.println("start write microsd");
+      digitalWrite(LED_BUILTIN, 1);
+      delay(200);
+      datalog();
+      digitalWrite(LED_BUILTIN, 0);
+    }
+  }
+}
